@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import platform
 import re
 import shutil
@@ -12,9 +13,6 @@ class MonitorSistema:
 
     def __init__(self) -> None:
         self._ruta_nvidia_smi = shutil.which("nvidia-smi")
-        if not self._ruta_nvidia_smi:
-            raise RuntimeError("Se requiere una GPU NVIDIA con CUDA para ejecutar este monitor.")
-
         self._nombre_cpu = self._obtener_nombre_cpu()
         self._nombre_gpu = self._obtener_nombre_gpu()
         self._nombre_interfaz_red = self._obtener_nombre_interfaz_red()
@@ -146,6 +144,11 @@ class MonitorSistema:
         if self._gpu_cache is not None and (tiempo_actual - self._ultimo_tiempo_gpu) < 3.0:
             return self._gpu_cache
 
+        if not self._ruta_nvidia_smi:
+            self._gpu_cache = self._obtener_info_gpu_generica()
+            self._ultimo_tiempo_gpu = tiempo_actual
+            return self._gpu_cache
+
         try:
             comando = [
                 self._ruta_nvidia_smi,
@@ -175,6 +178,21 @@ class MonitorSistema:
         self._ultimo_tiempo_gpu = tiempo_actual
         return self._gpu_cache
 
+    def _obtener_info_gpu_generica(self) -> dict[str, float]:
+        nombre = self._nombre_gpu
+        memoria_total_mb = 0.0
+
+        if nombre == "GPU desconocida":
+            nombre = self._obtener_nombre_gpu_generico()
+
+        return {
+            "nombre": nombre,
+            "utilizacion_porcentaje": 0.0,
+            "temperatura_c": 0.0,
+            "memoria_usada_mb": 0.0,
+            "memoria_total_mb": memoria_total_mb,
+        }
+
     def _precalentar_cpu_procesos(self) -> None:
         for proceso in psutil.process_iter():
             try:
@@ -183,6 +201,9 @@ class MonitorSistema:
                 continue
 
     def _obtener_nombre_gpu(self) -> str:
+        if not self._ruta_nvidia_smi:
+            return self._obtener_nombre_gpu_generico()
+
         try:
             resultado = subprocess.run(
                 [self._ruta_nvidia_smi, "--query-gpu=name", "--format=csv,noheader"],
@@ -194,6 +215,30 @@ class MonitorSistema:
             if nombre:
                 return re.sub(r"\s+", " ", nombre)
         except (subprocess.SubprocessError, IndexError):
+            pass
+
+        return "GPU desconocida"
+
+    def _obtener_nombre_gpu_generico(self) -> str:
+        try:
+            resultado = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    "Get-CimInstance Win32_VideoController | Select-Object -First 1 Name | ConvertTo-Json -Compress",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            salida = resultado.stdout.strip()
+            if salida:
+                datos = json.loads(salida)
+                nombre = str(datos.get("Name", "")).strip()
+                if nombre:
+                    return re.sub(r"\s+", " ", nombre)
+        except (subprocess.SubprocessError, FileNotFoundError, ValueError, json.JSONDecodeError, AttributeError):
             pass
 
         return "GPU desconocida"

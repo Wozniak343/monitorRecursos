@@ -89,7 +89,7 @@ class VentanaPrincipal(QMainWindow):
 
         self.tarjeta_cpu = TarjetaRecurso("CPU", "Uso actual")
         self.tarjeta_ram = TarjetaRecurso("Memoria RAM", "Uso actual")
-        self.tarjeta_gpu = TarjetaRecurso("GPU", "Uso y temperatura")
+        self.tarjeta_gpu = TarjetaRecurso("GPU", "Uso del adaptador")
         self.panel_discos = PanelDiscos()
         self.panel_red = PanelRed()
         self.panel_procesos = QFrame()
