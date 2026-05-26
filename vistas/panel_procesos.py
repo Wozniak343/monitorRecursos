@@ -1,7 +1,6 @@
 from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
-
 class PanelProcesos(QWidget):
     def __init__(self, padre=None) -> None:
         super().__init__(padre)

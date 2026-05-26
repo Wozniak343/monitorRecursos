@@ -1,7 +1,7 @@
 from __future__ import annotations
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout
+from recursos.logo import obtener_logo
 
 class TarjetaRecurso(QFrame):
     def __init__(self, titulo: str, unidad: str, padre=None) -> None:
@@ -14,8 +14,19 @@ class TarjetaRecurso(QFrame):
         sombra.setColor(QColor(0, 0, 0, 60))
         self.setGraphicsEffect(sombra)
 
+        icono = QLabel()
+        icono.setPixmap(obtener_logo(16))
+        icono.setObjectName("LogoSecundario")
+
         self.etiqueta_titulo = QLabel(titulo)
         self.etiqueta_titulo.setObjectName("TarjetaTitulo")
+
+        cabecera = QHBoxLayout()
+        cabecera.setContentsMargins(0, 0, 0, 0)
+        cabecera.setSpacing(8)
+        cabecera.addWidget(icono)
+        cabecera.addWidget(self.etiqueta_titulo)
+        cabecera.addStretch(1)
 
         self.etiqueta_detalle = QLabel(unidad)
         self.etiqueta_detalle.setObjectName("TarjetaDetalle")
@@ -32,7 +43,7 @@ class TarjetaRecurso(QFrame):
         contenido.setContentsMargins(18, 16, 18, 16)
         contenido.setSpacing(10)
 
-        contenido.addWidget(self.etiqueta_titulo)
+        contenido.addLayout(cabecera)
         contenido.addWidget(self.etiqueta_detalle)
         contenido.addWidget(self.etiqueta_valor)
         contenido.addWidget(self.barra_progreso)

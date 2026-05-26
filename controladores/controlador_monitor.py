@@ -6,8 +6,9 @@ from vistas.ventana_principal import VentanaPrincipal
 import logging
 
 logger = logging.getLogger("monitor_recursos")
-
 class ControladorMonitor(QObject):
+    PROCESOS_VISIBLES = 50
+
     def __init__(self) -> None:
         super().__init__()
         logger.info("Iniciando ControladorMonitor")
@@ -25,7 +26,7 @@ class ControladorMonitor(QObject):
     def actualizar(self) -> None:
         logger.debug("Actualizando datos del sistema")
         resumen = self.modelo.obtener_resumen_sistema()
-        procesos = self.modelo.obtener_procesos_mas_pesados()
+        procesos = self.modelo.obtener_procesos_mas_pesados(cantidad=self.PROCESOS_VISIBLES)
         self.ventana.actualizar_datos(resumen, procesos)
         self.ventana.mostrar_estado("Datos actualizados automaticamente cada 2 segundos")
         logger.info("Datos actualizados")

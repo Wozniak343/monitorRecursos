@@ -8,6 +8,8 @@ from typing import Any
 import psutil
 
 class MonitorSistema:
+    MAX_PROCESOS_MOSTRADOS = 50
+
     def __init__(self) -> None:
         self._ruta_nvidia_smi = shutil.which("nvidia-smi")
         if not self._ruta_nvidia_smi:
@@ -24,6 +26,7 @@ class MonitorSistema:
         self._ultimo_tiempo_gpu = 0.0
         self._ultimo_registro_red = psutil.net_io_counters()
         self._ultimo_momento_red = time.perf_counter()
+        self._precalentar_cpu_procesos()
 
     def obtener_resumen_sistema(self) -> dict[str, Any]:
         memoria = psutil.virtual_memory()
@@ -53,9 +56,10 @@ class MonitorSistema:
             "cantidad_procesos": len(psutil.pids()),
         }
 
-    def obtener_procesos_mas_pesados(self, cantidad: int = 5) -> list[dict[str, Any]]:
+    def obtener_procesos_mas_pesados(self, cantidad: int = 50) -> list[dict[str, Any]]:
+        cantidad = max(1, min(cantidad, self.MAX_PROCESOS_MOSTRADOS))
         tiempo_actual = time.perf_counter()
-        if self._procesos_cache and (tiempo_actual - self._ultimo_tiempo_procesos) < 3.0:
+        if self._procesos_cache and (tiempo_actual - self._ultimo_tiempo_procesos) < 2.0:
             return self._procesos_cache[:cantidad]
 
         procesos: list[dict[str, Any]] = []
@@ -142,24 +146,41 @@ class MonitorSistema:
         if self._gpu_cache is not None and (tiempo_actual - self._ultimo_tiempo_gpu) < 3.0:
             return self._gpu_cache
 
-        comando = [
-            self._ruta_nvidia_smi,
-            "--query-gpu=name,utilization.gpu,temperature.gpu,memory.used,memory.total",
-            "--format=csv,noheader,nounits",
-        ]
-        resultado = subprocess.run(comando, capture_output=True, text=True, check=True)
-        primera_linea = resultado.stdout.strip().splitlines()[0]
-        nombre, util, temperatura, memoria_usada, memoria_total = [valor.strip() for valor in primera_linea.split(",")]
+        try:
+            comando = [
+                self._ruta_nvidia_smi,
+                "--query-gpu=name,utilization.gpu,temperature.gpu,memory.used,memory.total",
+                "--format=csv,noheader,nounits",
+            ]
+            resultado = subprocess.run(comando, capture_output=True, text=True, check=True)
+            primera_linea = resultado.stdout.strip().splitlines()[0]
+            nombre, util, temperatura, memoria_usada, memoria_total = [valor.strip() for valor in primera_linea.split(",")]
 
-        self._gpu_cache = {
-            "nombre": nombre,
-            "utilizacion_porcentaje": float(util),
-            "temperatura_c": float(temperatura),
-            "memoria_usada_mb": float(memoria_usada),
-            "memoria_total_mb": float(memoria_total),
-        }
+            self._gpu_cache = {
+                "nombre": nombre,
+                "utilizacion_porcentaje": float(util),
+                "temperatura_c": float(temperatura),
+                "memoria_usada_mb": float(memoria_usada),
+                "memoria_total_mb": float(memoria_total),
+            }
+        except (subprocess.SubprocessError, ValueError, IndexError):
+            self._gpu_cache = self._gpu_cache or {
+                "nombre": self._nombre_gpu,
+                "utilizacion_porcentaje": 0.0,
+                "temperatura_c": 0.0,
+                "memoria_usada_mb": 0.0,
+                "memoria_total_mb": 0.0,
+            }
+
         self._ultimo_tiempo_gpu = tiempo_actual
         return self._gpu_cache
+
+    def _precalentar_cpu_procesos(self) -> None:
+        for proceso in psutil.process_iter():
+            try:
+                proceso.cpu_percent(None)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
 
     def _obtener_nombre_gpu(self) -> str:
         try:

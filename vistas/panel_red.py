@@ -2,7 +2,8 @@ from __future__ import annotations
 from collections import deque
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
-from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from recursos.logo import obtener_logo
 
 class GraficaRed(QWidget):
     def __init__(self, padre=None) -> None:
@@ -54,8 +55,18 @@ class PanelRed(QFrame):
         self.setObjectName("PanelRed")
         self.setMinimumHeight(300)
 
+        cabecera = QHBoxLayout()
+        cabecera.setContentsMargins(0, 0, 0, 0)
+        cabecera.setSpacing(8)
+        icono = QLabel()
+        icono.setPixmap(obtener_logo(18))
+        icono.setObjectName("LogoSecundario")
+
         self.etiqueta_titulo = QLabel("Red")
         self.etiqueta_titulo.setObjectName("TarjetaTitulo")
+        cabecera.addWidget(icono)
+        cabecera.addWidget(self.etiqueta_titulo)
+        cabecera.addStretch(1)
 
         self.etiqueta_interfaz = QLabel("Adaptador de red")
         self.etiqueta_interfaz.setObjectName("TarjetaDetalle")
@@ -72,7 +83,7 @@ class PanelRed(QFrame):
         contenido = QVBoxLayout(self)
         contenido.setContentsMargins(18, 16, 18, 16)
         contenido.setSpacing(8)
-        contenido.addWidget(self.etiqueta_titulo)
+        contenido.addLayout(cabecera)
         contenido.addWidget(self.etiqueta_interfaz)
         contenido.addWidget(self.etiqueta_valor)
         contenido.addWidget(self.grafica, 1)

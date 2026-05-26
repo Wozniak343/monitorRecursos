@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 from PySide6.QtWidgets import QApplication
-
 
 ESTILO_OSCURO = """
 QMainWindow {
@@ -29,6 +27,14 @@ QWidget#TarjetasContenedor {
 QLabel#TituloPrincipal {
     font-size: 18pt;
     font-weight: 650;
+}
+
+QLabel#LogoPrincipal {
+    padding: 4px;
+}
+
+QLabel#LogoSecundario {
+    min-width: 16px;
 }
 
 QLabel#SubtituloPrincipal {

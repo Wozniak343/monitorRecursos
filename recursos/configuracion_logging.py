@@ -1,19 +1,10 @@
 from __future__ import annotations
-
 import logging
 from pathlib import Path
 
-
 NOMBRE_LOGGER = "monitor_recursos"
 
-
 def configurar_logging() -> logging.Logger:
-    """Configura y devuelve el logger principal del proyecto.
-
-    - Crea el directorio `logs` en la raíz del proyecto si no existe.
-    - Añade un handler de archivo y uno de consola con formato legible en español.
-    - Si el logger ya tiene handlers, no hace nada (evita duplicados).
-    """
     logger = logging.getLogger(NOMBRE_LOGGER)
     if logger.handlers:
         return logger

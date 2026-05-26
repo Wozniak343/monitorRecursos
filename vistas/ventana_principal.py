@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from recursos.logo import obtener_icono_aplicacion, obtener_logo
 from vistas.componente_tarjeta import TarjetaRecurso
 from vistas.panel_discos import PanelDiscos
 from vistas.panel_red import PanelRed
@@ -22,6 +23,7 @@ class VentanaPrincipal(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Monitor de Recursos")
+        self.setWindowIcon(obtener_icono_aplicacion())
         self.resize(980, 720)
         self.setMinimumSize(860, 640)
 
@@ -53,6 +55,12 @@ class VentanaPrincipal(QMainWindow):
         contenido_encabezado.setContentsMargins(18, 16, 18, 16)
         contenido_encabezado.setSpacing(12)
 
+        etiqueta_logo = QLabel()
+        etiqueta_logo.setPixmap(obtener_logo(56))
+        etiqueta_logo.setObjectName("LogoPrincipal")
+        etiqueta_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        etiqueta_logo.setMinimumWidth(64)
+
         bloque_texto = QVBoxLayout()
         etiqueta_titulo = QLabel("Monitor de Recursos")
         etiqueta_titulo.setObjectName("TituloPrincipal")
@@ -62,6 +70,7 @@ class VentanaPrincipal(QMainWindow):
         self.boton_actualizar.setObjectName("BotonPrimario")
         self.boton_actualizar.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        contenido_encabezado.addWidget(etiqueta_logo)
         contenido_encabezado.addLayout(bloque_texto)
         contenido_encabezado.addStretch(1)
         contenido_encabezado.addWidget(self.boton_actualizar)
@@ -89,9 +98,18 @@ class VentanaPrincipal(QMainWindow):
         disposicion_procesos = QVBoxLayout(self.panel_procesos)
         disposicion_procesos.setContentsMargins(18, 16, 18, 16)
         disposicion_procesos.setSpacing(10)
+        cabecera_procesos = QHBoxLayout()
+        cabecera_procesos.setContentsMargins(0, 0, 0, 0)
+        cabecera_procesos.setSpacing(8)
+        icono_procesos = QLabel()
+        icono_procesos.setPixmap(obtener_logo(18))
+        icono_procesos.setObjectName("LogoSecundario")
         titulo_procesos = QLabel("Procesos activos")
         titulo_procesos.setObjectName("TarjetaTitulo")
-        self.texto_procesos = QLabel("Lista de procesos en tiempo real")
+        cabecera_procesos.addWidget(icono_procesos)
+        cabecera_procesos.addWidget(titulo_procesos)
+        cabecera_procesos.addStretch(1)
+        self.texto_procesos = QLabel("Lista de procesos en tiempo real (hasta 50)")
         self.texto_procesos.setObjectName("TarjetaDetalle")
         self.texto_procesos.setWordWrap(True)
         self.tabla_procesos = QTableWidget(0, 4)
@@ -109,7 +127,7 @@ class VentanaPrincipal(QMainWindow):
         self.tabla_procesos.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self.boton_finalizar_proceso = QPushButton("Finalizar seleccionado")
         self.boton_finalizar_proceso.setObjectName("BotonSecundario")
-        disposicion_procesos.addWidget(titulo_procesos)
+        disposicion_procesos.addLayout(cabecera_procesos)
         disposicion_procesos.addWidget(self.texto_procesos)
         disposicion_procesos.addWidget(self.tabla_procesos, 1)
         disposicion_procesos.addWidget(self.boton_finalizar_proceso)
@@ -162,7 +180,9 @@ class VentanaPrincipal(QMainWindow):
         finally:
             self.tabla_procesos.setUpdatesEnabled(True)
 
-        self.texto_procesos.setText(f'{resumen["cantidad_procesos"]} procesos activos. Selecciona uno para finalizarlo.')
+        self.texto_procesos.setText(
+            f'{resumen["cantidad_procesos"]}'
+        )
 
     def mostrar_estado(self, mensaje: str) -> None:
         self.etiqueta_estado.setText(mensaje)
