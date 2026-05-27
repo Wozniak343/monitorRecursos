@@ -28,6 +28,7 @@ Aplicacion de escritorio en Python para monitorear en tiempo real los recursos p
 - Muestra hasta 50 procesos ordenados por carga.
 - Permite finalizar el proceso seleccionado desde la interfaz.
 - Guarda eventos en un archivo de log local.
+ - Reconoce y muestra GPUs y CPUs múltiples cuando están disponibles (soporte mejorado en Linux).
 
 ## Como funciona
 
@@ -35,7 +36,7 @@ El proyecto sigue una estructura simple separada en tres capas:
 
 - `main.py` inicia la aplicacion, configura el estilo, el icono y el logging.
 - `controladores/controlador_monitor.py` coordina la actualizacion cada 2 segundos y maneja las acciones de la ventana.
-- `modelos/monitor_sistema.py` consulta la informacion real del sistema con `psutil` y usa `nvidia-smi` solo cuando esta disponible.
+- `modelos/monitor_sistema.py` consulta la informacion real del sistema con `psutil`, usa `nvidia-smi` cuando está disponible y dispone de detectores genéricos en Linux (`lspci`, `glxinfo`). El código ahora reconoce múltiples GPUs y CPUs y normaliza GPUs integradas como "Gráficos integrados".
 - `vistas/` contiene la interfaz PySide6 y los paneles visuales.
 - `recursos/` guarda estilos, logo, configuracion de logs y la imagen del proyecto.
 
@@ -50,14 +51,17 @@ El flujo es este:
 ## Requisitos
 
 - Python 3.11 o superior.
-- Una GPU compatible con el sistema. Si es NVIDIA, se obtienen metricas detalladas; si no, la app sigue funcionando con deteccion generica.
+- Soporte multiplataforma: la aplicación es compatible con Linux (detecta múltiples CPUs y GPUs; usa `nvidia-smi` para métricas detalladas en NVIDIA cuando está disponible). Las GPUs integradas se muestran como "Gráficos integrados".
 - Dependencias instaladas desde `requirements.txt`.
 
 ## Instalacion
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate
+# En Linux / macOS:
+source .venv/bin/activate
+# En Windows (PowerShell):
+# .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
@@ -67,7 +71,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Si no hay acceso a `nvidia-smi`, la app no se detiene: muestra la GPU detectada por el sistema y deja las metricas avanzadas en cero cuando no estan disponibles.
+Si no hay acceso a `nvidia-smi`, la app no se detiene: muestra la GPU detectada por el sistema y deja las métricas avanzadas en cero cuando no están disponibles. En Linux la detección genérica puede usar `lspci` o `glxinfo` según lo disponible; la app ahora reconoce múltiples GPUs y CPUs.
 
 ## Estructura del proyecto
 

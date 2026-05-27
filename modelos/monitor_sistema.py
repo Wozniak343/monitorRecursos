@@ -156,16 +156,56 @@ class MonitorSistema:
                 "--format=csv,noheader,nounits",
             ]
             resultado = subprocess.run(comando, capture_output=True, text=True, check=True)
-            primera_linea = resultado.stdout.strip().splitlines()[0]
-            nombre, util, temperatura, memoria_usada, memoria_total = [valor.strip() for valor in primera_linea.split(",")]
+            lineas = [l.strip() for l in resultado.stdout.strip().splitlines() if l.strip()]
+            nombres: list[str] = []
+            utils: list[float] = []
+            temps: list[float] = []
+            mem_usada: list[float] = []
+            mem_total: list[float] = []
 
-            self._gpu_cache = {
-                "nombre": nombre,
-                "utilizacion_porcentaje": float(util),
-                "temperatura_c": float(temperatura),
-                "memoria_usada_mb": float(memoria_usada),
-                "memoria_total_mb": float(memoria_total),
-            }
+            for linea in lineas:
+                partes = [valor.strip() for valor in linea.split(",")]
+                if len(partes) >= 5:
+                    nombre = partes[0]
+                    try:
+                        util = float(partes[1])
+                    except ValueError:
+                        util = 0.0
+                    try:
+                        temp = float(partes[2])
+                    except ValueError:
+                        temp = 0.0
+                    try:
+                        musada = float(partes[3])
+                    except ValueError:
+                        musada = 0.0
+                    try:
+                        mtotal = float(partes[4])
+                    except ValueError:
+                        mtotal = 0.0
+
+                    nombres.append(re.sub(r"\s+", " ", nombre))
+                    utils.append(util)
+                    temps.append(temp)
+                    mem_usada.append(musada)
+                    mem_total.append(mtotal)
+
+            if nombres:
+                nombre_combinado = " | ".join(nombres)
+                util_prom = sum(utils) / len(utils) if utils else 0.0
+                temp_max = max(temps) if temps else 0.0
+                memoria_usada_sum = sum(mem_usada) if mem_usada else 0.0
+                memoria_total_sum = sum(mem_total) if mem_total else 0.0
+
+                self._gpu_cache = {
+                    "nombre": nombre_combinado,
+                    "utilizacion_porcentaje": float(util_prom),
+                    "temperatura_c": float(temp_max),
+                    "memoria_usada_mb": float(memoria_usada_sum),
+                    "memoria_total_mb": float(memoria_total_sum),
+                }
+            else:
+                raise ValueError("No se obtuvo información válida de nvidia-smi")
         except (subprocess.SubprocessError, ValueError, IndexError):
             self._gpu_cache = self._gpu_cache or {
                 "nombre": self._nombre_gpu,
@@ -184,6 +224,9 @@ class MonitorSistema:
 
         if nombre == "GPU desconocida":
             nombre = self._obtener_nombre_gpu_generico()
+        # Normalizar nombre si es GPU integrada
+        if self._es_gpu_integrada(nombre):
+            nombre = "Gráficos integrados"
 
         return {
             "nombre": nombre,
@@ -220,48 +263,84 @@ class MonitorSistema:
         return "GPU desconocida"
 
     def _obtener_nombre_gpu_generico(self) -> str:
+        # Intentar detectar GPUs en sistemas Unix/Linux usando lspci
         try:
-            resultado = subprocess.run(
-                [
-                    "powershell",
-                    "-NoProfile",
-                    "-Command",
-                    "Get-CimInstance Win32_VideoController | Select-Object -First 1 Name | ConvertTo-Json -Compress",
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            salida = resultado.stdout.strip()
-            if salida:
-                datos = json.loads(salida)
-                nombre = str(datos.get("Name", "")).strip()
-                if nombre:
-                    return re.sub(r"\s+", " ", nombre)
-        except (subprocess.SubprocessError, FileNotFoundError, ValueError, json.JSONDecodeError, AttributeError):
+            resultado = subprocess.run(["lspci", "-nnk"], capture_output=True, text=True, check=True)
+            salida = resultado.stdout or ""
+            nombres: list[str] = []
+            for linea in salida.splitlines():
+                if re.search(r"VGA|3D controller", linea, re.I):
+                    # Después de ': ' suele venir la descripción del dispositivo
+                    partes = linea.split(":", 1)
+                    if len(partes) > 1:
+                        nombre = partes[1].strip()
+                        if nombre:
+                            nombres.append(re.sub(r"\s+", " ", nombre))
+            if nombres:
+                nombre_unido = " | ".join(nombres)
+                if self._es_gpu_integrada(nombre_unido):
+                    return "Gráficos integrados"
+                return nombre_unido
+        except (subprocess.SubprocessError, FileNotFoundError):
+            pass
+
+        # Último recurso: intentar comandos gráficos o devolver desconocida
+        try:
+            resultado = shutil.which("glxinfo")
+            if resultado:
+                out = subprocess.run([resultado, "-B"], capture_output=True, text=True, check=True).stdout
+                for linea in out.splitlines():
+                    if linea.lower().startswith("device:") or linea.lower().startswith("vendor:"):
+                        nombre = linea.split(":", 1)[1].strip()
+                        if nombre:
+                            if self._es_gpu_integrada(nombre):
+                                return "Gráficos integrados"
+                            return re.sub(r"\s+", " ", nombre)
+        except Exception:
             pass
 
         return "GPU desconocida"
 
+    def _es_gpu_integrada(self, nombre: str) -> bool:
+        if not nombre:
+            return False
+        clave = nombre.lower()
+        integrada_indicadores = [
+            "intel",
+            "uhd",
+            "iris",
+            "hd graphics",
+            "integrated",
+            "radeon graphics",
+            "radeon vega",
+            "mendocino",
+            "radeon 610",
+            "radeon 610m",
+            "radeon 620",
+            "radeon rx vega",
+        ]
+        discreta_excluir = ["nvidia", "geforce", "gtx", "rtx", "quadro"]
+
+        if any(term in clave for term in discreta_excluir):
+            return False
+
+        return any(term in clave for term in integrada_indicadores)
+
     def _obtener_nombre_cpu(self) -> str:
+        # Intentar leer /proc/cpuinfo en sistemas tipo Unix
         try:
-            resultado = subprocess.run(
-                [
-                    "powershell",
-                    "-NoProfile",
-                    "-Command",
-                    "(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name)",
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            nombre = resultado.stdout.strip()
-            if nombre:
-                return re.sub(r"\s+", " ", nombre)
-        except (subprocess.SubprocessError, FileNotFoundError, IndexError):
+            with open("/proc/cpuinfo", "r", encoding="utf-8", errors="ignore") as f:
+                for linea in f:
+                    if linea.lower().startswith("model name") or linea.lower().startswith("cpu model"):
+                        partes = linea.split(":", 1)
+                        if len(partes) > 1:
+                            nombre = partes[1].strip()
+                            if nombre:
+                                return re.sub(r"\s+", " ", nombre)
+        except Exception:
             pass
 
+        # Fallback a platform
         nombre = platform.processor().strip()
         if nombre:
             return re.sub(r"\s+", " ", nombre)
